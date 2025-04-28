@@ -48,6 +48,38 @@ static const struct PatternData walkingOnes = {
   {1, 1, 2, 1}  // Weight for choosing 32/64/128/256 bit wide of this pattern
 };
 
+static unsigned int walkingOnesX16_data[] =   {
+  0x00020001, 0x00080004, 0x00200010, 0x00800040,
+  0x02000100, 0x08000400, 0x20001000, 0x80004000,
+  0x20004000, 0x08001000, 0x02000400, 0x00800100,
+  0x00200040, 0x00080010, 0x00020004, 0x00000001
+};
+static const struct PatternData walkingOnesX16 = {
+  "walkingOnesX16",
+  walkingOnesX16_data,
+  (sizeof walkingOnesX16_data / sizeof walkingOnesX16_data[0]) - 1,
+  {2, 0, 0, 0}  // Weight for choosing 32/64/128/256 bit wide of this pattern
+  // Reuse for walkingZerosX16, because of invert
+};
+
+static unsigned int walkingOnesX16Repeat_data[] =   {
+  0x00010001, 0x00020002, 0x00040004, 0x00080008,
+  0x00100010, 0x00200020, 0x00400040, 0x00800080,
+  0x01000100, 0x02000200, 0x04000400, 0x08000800,
+  0x10001000, 0x20002000, 0x40004000, 0x80008000,
+  0x40004000, 0x20002000, 0x10001000, 0x08000800,
+  0x04000400, 0x02000200, 0x01000100, 0x00800080,
+  0x00400040, 0x00200020, 0x00100010, 0x00080008,
+  0x00040004, 0x00020002, 0x00010001, 0x00000000
+};
+static const struct PatternData walkingOnesX16Repeat = {
+  "walkingOnesX16Repeat",
+  walkingOnesX16Repeat_data,
+  (sizeof walkingOnesX16Repeat_data / sizeof walkingOnesX16Repeat_data[0]) - 1,
+  {2, 4, 2, 0}  // Weight for choosing 32/64/128/256 bit wide of this pattern
+  // Reuse for walkingZerosX16Repeat, because of invert
+};
+
 static unsigned int walkingInvOnes_data[] =   {
   0x00000001, 0xfffffffe, 0x00000002, 0xfffffffd,
   0x00000004, 0xfffffffb, 0x00000008, 0xfffffff7,
@@ -89,6 +121,48 @@ static const struct PatternData walkingInvOnes = {
   {2, 2, 5, 5}
 };
 
+static unsigned int walkingInvOnesX16_data[] =   {
+  0xfffe0001, 0xfffd0002, 0xfffb0004, 0xfff70008,
+  0xffef0010, 0xffdf0020, 0xffbf0040, 0xff7f0080,
+  0xfeff0100, 0xfdff0200, 0xfbff0400, 0xf7ff0800,
+  0xefff1000, 0xdfff2000, 0xbfff4000, 0x7fff8000,
+  0xbfff4000, 0xdfff2000, 0xefff1000, 0xf7ff0800,
+  0xfbff0400, 0xfdff0200, 0xfeff0100, 0xff7f0080,
+  0xffbf0040, 0xffdf0020, 0xffef0010, 0xfff70008,
+  0xfffb0004, 0xfffd0002, 0xfffe0001, 0xffff0000
+};
+static const struct PatternData walkingInvOnesX16 = {
+  "walkingInvOnesX16",
+  walkingInvOnesX16_data,
+  (sizeof walkingInvOnesX16_data / sizeof walkingInvOnesX16_data[0]) - 1,
+  {2, 0, 0, 0}
+};
+
+static unsigned int walkingInvOnesX16Repeat_data[] =   {
+  0x00010001, 0xfffefffe, 0x00020002, 0xfffdfffd,
+  0x00040004, 0xfffbfffb, 0x00080008, 0xfff7fff7,
+  0x00100010, 0xffefffef, 0x00200020, 0xffdfffdf,
+  0x00400040, 0xffbfffbf, 0x00800080, 0xff7fff7f,
+  0x01000100, 0xfefffeff, 0x02000200, 0xfdfffdff,
+  0x04000400, 0xfbfffbff, 0x08000800, 0xf7fff7ff,
+  0x10001000, 0xefffefff, 0x20002000, 0xdfffdfff,
+  0x40004000, 0xbfffbfff, 0x80008000, 0x7fff7fff,
+  0x40004000, 0xbfffbfff, 0x20002000, 0xdfffdfff,
+  0x10001000, 0xefffefff, 0x08000800, 0xf7fff7ff,
+  0x04000400, 0xfbfffbff, 0x02000200, 0xfdfffdff,
+  0x01000100, 0xfefffeff, 0x00800080, 0xff7fff7f,
+  0x00400040, 0xffbfffbf, 0x00200020, 0xffdfffdf,
+  0x00100010, 0xffefffef, 0x00080008, 0xfff7fff7,
+  0x00040004, 0xfffbfffb, 0x00020002, 0xfffdfffd,
+  0x00010001, 0xfffefffe, 0x00000000, 0xffffffff
+};
+static const struct PatternData walkingInvOnesX16Repeat = {
+  "walkingInvOnesX16Repeat",
+  walkingInvOnesX16Repeat_data,
+  (sizeof walkingInvOnesX16Repeat_data / sizeof walkingInvOnesX16Repeat_data[0]) - 1,
+  {2, 5, 5, 0}
+};
+
 static unsigned int walkingZeros_data[] =   {
   0xfffffffe, 0xfffffffd, 0xfffffffb, 0xfffffff7,
   0xffffffef, 0xffffffdf, 0xffffffbf, 0xffffff7f,
@@ -120,6 +194,14 @@ static const struct PatternData OneZero = {
   OneZero_data,
   (sizeof OneZero_data / sizeof OneZero_data[0]) - 1,
   {5, 5, 15, 5}
+};
+
+static unsigned int OneZeroX16_data[] =   { 0x0000ffff, 0x0000ffff};
+static const struct PatternData OneZeroX16 = {
+  "OneZeroX16",
+  OneZeroX16_data,
+  (sizeof OneZeroX16_data / sizeof OneZeroX16_data[0]) - 1,
+  {5, 0, 0, 0}
 };
 
 static unsigned int JustZero_data[] =   { 0x00000000, 0x00000000};
@@ -162,6 +244,14 @@ static const struct PatternData FiveA = {
   {1, 1, 1, 1}
 };
 
+static unsigned int FiveAX16_data[] =   { 0x5555aaaa, 0x5555aaaa};
+static const struct PatternData FiveAX16 = {
+  "FiveAX16",
+  FiveAX16_data,
+  (sizeof FiveAX16_data / sizeof FiveAX16_data[0]) - 1,
+  {1, 0, 0, 0}
+};
+
 static unsigned int FiveA8_data[] =   {
   0x5aa5a55a, 0xa55a5aa5, 0xa55a5aa5, 0x5aa5a55a
 };
@@ -170,6 +260,24 @@ static const struct PatternData FiveA8 = {
   FiveA8_data,
   (sizeof FiveA8_data / sizeof FiveA8_data[0]) - 1,
   {1, 1, 1, 1}
+};
+
+static unsigned int FiveA8X16_data[] =   { 0x5aa5a55a, 0xa55a5aa5};
+static const struct PatternData FiveA8X16 = {
+  "FiveA8X16",
+  FiveA8X16_data,
+  (sizeof FiveA8X16_data / sizeof FiveA8X16_data[0]) - 1,
+  {1, 0, 0, 0}
+};
+
+static unsigned int FiveA8X16Repeat_data[] =   {
+  0x5aa55aa5, 0xa55aa55a, 0xa55aa55a, 0x5aa55aa5
+};
+static const struct PatternData FiveA8X16Repeat = {
+  "FiveA8X16Repeat",
+  FiveA8X16Repeat_data,
+  (sizeof FiveA8X16Repeat_data / sizeof FiveA8X16Repeat_data[0]) - 1,
+  {1, 1, 1, 0}
 };
 
 static unsigned int Long8b10b_data[] =   { 0x16161616, 0x16161616 };
@@ -193,7 +301,15 @@ static const struct PatternData Checker8b10b = {
   "Checker8b10b",
   Checker8b10b_data,
   (sizeof Checker8b10b_data / sizeof Checker8b10b_data[0]) - 1,
-  {1, 0, 0, 1}
+  {1, 0, 1, 1}
+};
+
+static unsigned int Checker8b10bX16_data[] =   { 0xb5b54a4a, 0xb5b54a4a };
+static const struct PatternData Checker8b10bX16 = {
+  "Checker8b10bX16",
+  Checker8b10bX16_data,
+  (sizeof Checker8b10bX16_data / sizeof Checker8b10bX16_data[0]) - 1,
+  {1, 0, 0, 0}
 };
 
 static unsigned int Five7_data[] =   { 0x55555557, 0x55575555 };
@@ -204,6 +320,14 @@ static const struct PatternData Five7 = {
   {0, 2, 0, 0}
 };
 
+static unsigned int Five7X16_data[] =   { 0x55575557, 0x57555755 };
+static const struct PatternData Five7X16 = {
+  "Five7X16",
+  Five7X16_data,
+  (sizeof Five7X16_data / sizeof Five7X16_data[0]) - 1,
+  {2, 0, 0, 0}
+};
+
 static unsigned int Zero2fd_data[] =   { 0x00020002, 0xfffdfffd };
 static const struct PatternData Zero2fd = {
   "Zero2fd",
@@ -212,23 +336,42 @@ static const struct PatternData Zero2fd = {
   {0, 2, 0, 0}
 };
 
+static unsigned int Zero2fdX16_data[] =   { 0x02020202, 0xfdfdfdfd };
+static const struct PatternData Zero2fdX16 = {
+  "Zero2fdX16",
+  Zero2fdX16_data,
+  (sizeof Zero2fdX16_data / sizeof Zero2fdX16_data[0]) - 1,
+  {2, 0, 0, 0}
+};
+
 // Extern array of useable patterns.
 static const struct PatternData pattern_array[] = {
   walkingOnes,
+  walkingOnesX16,
+  walkingOnesX16Repeat,
   walkingInvOnes,
+  walkingInvOnesX16,
+  walkingInvOnesX16Repeat,
   walkingZeros,
   OneZero,
+  OneZeroX16,
   JustZero,
   JustOne,
   JustFive,
   JustA,
   FiveA,
+  FiveAX16,
   FiveA8,
+  FiveA8X16,
+  FiveA8X16Repeat,
   Long8b10b,
   Short8b10b,
   Checker8b10b,
+  Checker8b10bX16,
   Five7,
+  Five7X16,
   Zero2fd,
+  Zero2fdX16,
 };
 static const int pattern_array_size =
     sizeof pattern_array / sizeof pattern_array[0];

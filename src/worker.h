@@ -323,18 +323,21 @@ class WorkerThread {
                           uint32 lastcpu,
                           int64 length,
                           int offset,
-                          int64 patternoffset);
+                          int64 patternoffset,
+                          const char *threadname);
 
   // Fast compare a block of memory.
-  virtual int CrcCheckPage(struct page_entry *srcpe);
+  virtual int CrcCheckPage(struct page_entry *srcpe, const char *threadname);
 
   // Fast copy a block of memory, while verifying correctness.
   virtual int CrcCopyPage(struct page_entry *dstpe,
-                          struct page_entry *srcpe);
+                          struct page_entry *srcpe,
+                          const char *threadname);
 
   // Fast copy a block of memory, while verifying correctness, and heating CPU.
   virtual int CrcWarmCopyPage(struct page_entry *dstpe,
-                              struct page_entry *srcpe);
+                              struct page_entry *srcpe,
+                              const char *threadname);
 
   // Fill a page with its specified pattern.
   virtual bool FillPage(struct page_entry *pe);

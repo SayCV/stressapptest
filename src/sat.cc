@@ -551,7 +551,7 @@ bool Sat::InitializePages() {
 
 // Print SAT version info.
 bool Sat::PrintVersion() {
-  logprintf(1, "Stats: SAT revision %s, %d bit binary\n",
+  logprintf(1, "Stats: SAT revision %s, %d bit binary, 20231020\n",
             kVersion, address_mode_);
   logprintf(5, "Log: %s from %s\n", Timestamp(), BuildChangelist());
 

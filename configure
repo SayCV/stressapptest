@@ -3065,6 +3065,12 @@ printf "%s\n" "#define STRESSAPPTEST_CPU_PPC /**/" >>confdefs.h
 printf "%s\n" "#define STRESSAPPTEST_CPU_ARMV7A /**/" >>confdefs.h
 
      ;; #(
+  *arm*) :
+
+
+printf "%s\n" "#define STRESSAPPTEST_CPU_ARMV7A /**/" >>confdefs.h
+
+     ;; #(
   *aarch64*) :
 
 

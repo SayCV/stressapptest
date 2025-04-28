@@ -112,6 +112,8 @@ struct ErrorRecord {
   uint64 actual;  // This is the actual value read.
   uint64 reread;  // This is the actual value, reread.
   uint64 expected;  // This is what it should have been.
+  uint64 reread_xor;  // This is the actual value, reread ^ read.
+  uint64 expected_xor;  // This is what it should have been, expected ^ read.
   uint64 *vaddr;  // This is where it was (or wasn't).
   char *vbyteaddr;  // This is byte specific where the data was (or wasn't).
   uint64 paddr;  // This is the bus address, if available.
@@ -618,6 +620,9 @@ void WorkerThread::ProcessError(struct ErrorRecord *error,
   // Pretty print DIMM mapping if available.
   os_->FindDimm(error->paddr, dimm_string, sizeof(dimm_string));
 
+  error->reread_xor = error->reread ^ error->actual;
+  error->expected_xor = error->expected ^ error->actual;
+
   // Report parseable error.
   if (priority < 5) {
     // Run miscompare error through diagnoser for logging and reporting.
@@ -626,8 +631,11 @@ void WorkerThread::ProcessError(struct ErrorRecord *error,
                                               (error->vaddr), 1);
 
     logprintf(priority,
-              "%s: miscompare on CPU %d(<-%d) at %p(0x%llx:%s): "
-              "read:0x%016llx, reread:0x%016llx expected:0x%016llx. '%s'%s.\n",
+              "%s: miscompare on CPU %d(<-%d) at %p(0x%llx:%s):\n"
+              "  read:    0x%016llx\n"
+              "  reread:  0x%016llx(reread^read:0x%016llx)\n"
+              "  expected:0x%016llx(expected^read:0x%016llx)\n"
+              "  '%s'%s\n",
               message,
               core_id,
               error->lastcpu,
@@ -636,9 +644,26 @@ void WorkerThread::ProcessError(struct ErrorRecord *error,
               dimm_string,
               error->actual,
               error->reread,
+              error->reread_xor,
               error->expected,
+              error->expected_xor,
               (error->patternname) ? error->patternname : "None",
               (error->reread == error->expected) ? " read error" : "");
+
+      uint64 *print_vaddr, i;
+
+      print_vaddr = error->vaddr;
+      print_vaddr = print_vaddr - 32;
+      for (i = 0; i < 64; i = i + 4) {
+      logprintf(priority,
+                "[%p] 0x%016llx, 0x%016llx, 0x%016llx, 0x%016llx\n",
+                print_vaddr + i,
+                *(print_vaddr + i),
+                *(print_vaddr + i + 1),
+                *(print_vaddr + i + 2),
+                *(print_vaddr + i + 3)
+                );
+      }
   }
 
 
@@ -722,13 +747,14 @@ int WorkerThread::CheckRegion(void *addr,
                               uint32 lastcpu,
                               int64 length,
                               int offset,
-                              int64 pattern_offset) {
+                              int64 pattern_offset,
+                              const char *threadname) {
   uint64 *memblock = static_cast<uint64*>(addr);
   const int kErrorLimit = 128;
   int errors = 0;
   int overflowerrors = 0;  // Count of overflowed errors.
   bool page_error = false;
-  string errormessage("Hardware Error");
+  string errormessage(string(threadname) + " Hardware Error");
   struct ErrorRecord
     recorded[kErrorLimit];  // Queued errors for later printing.
 
@@ -762,7 +788,7 @@ int WorkerThread::CheckRegion(void *addr,
         page_error = true;
         // If we have overflowed the error queue, just print the errors now.
         logprintf(10, "Log: Error record overflow, too many miscompares!\n");
-        errormessage = "Page Error";
+        errormessage = string(threadname) + " Page Error";
         break;
       }
     }
@@ -834,7 +860,7 @@ int WorkerThread::CheckRegion(void *addr,
 
       if ((state == kGoodAgain) || (state == kBad)) {
         unsigned int blockerrors = badend - badstart + 1;
-        errormessage = "Block Error";
+        errormessage = string(threadname) + " Block Error";
         // It's okay for the 1st entry to be corrected multiple times,
         // it will simply be reported twice. Once here and once below
         // when processing the error queue.
@@ -904,7 +930,7 @@ float WorkerThread::GetCopiedData() {
 
 // Calculate the CRC of a region.
 // Result check if the CRC mismatches.
-int WorkerThread::CrcCheckPage(struct page_entry *srcpe) {
+int WorkerThread::CrcCheckPage(struct page_entry *srcpe, const char *threadname) {
   const int blocksize = 4096;
   const int blockwords = blocksize / wordsize_;
   int errors = 0;
@@ -932,7 +958,8 @@ int WorkerThread::CrcCheckPage(struct page_entry *srcpe) {
                                    srcpe->pattern,
                                    srcpe->lastcpu,
                                    blocksize,
-                                   currentblock * blocksize, 0);
+                                   currentblock * blocksize, 0,
+                                   threadname);
       if (errorcount == 0) {
         logprintf(0, "Log: CrcCheckPage CRC mismatch %s != %s, "
                      "but no miscompares found.\n",
@@ -951,7 +978,8 @@ int WorkerThread::CrcCheckPage(struct page_entry *srcpe) {
                           srcpe->pattern,
                           srcpe->lastcpu,
                           leftovers,
-                          blocks * blocksize, 0);
+                          blocks * blocksize, 0,
+                          threadname);
   }
   return errors;
 }
@@ -1212,7 +1240,8 @@ bool WorkerThread::AdlerAddrCrcC(uint64 *srcmem64,
 // Copy a block of memory quickly, while keeping a CRC of the data.
 // Result check if the CRC mismatches.
 int WorkerThread::CrcCopyPage(struct page_entry *dstpe,
-                              struct page_entry *srcpe) {
+                              struct page_entry *srcpe,
+                              const char *threadname) {
   int errors = 0;
   const int blocksize = 4096;
   const int blockwords = blocksize / wordsize_;
@@ -1244,7 +1273,8 @@ int WorkerThread::CrcCopyPage(struct page_entry *dstpe,
                                    srcpe->pattern,
                                    srcpe->lastcpu,
                                    blocksize,
-                                   currentblock * blocksize, 0);
+                                   currentblock * blocksize, 0,
+                                   threadname);
       if (errorcount == 0) {
         logprintf(0, "Log: CrcCopyPage CRC mismatch %s != %s, "
                      "but no miscompares found. Retrying with fresh data.\n",
@@ -1259,7 +1289,8 @@ int WorkerThread::CrcCopyPage(struct page_entry *dstpe,
                                    srcpe->pattern,
                                    srcpe->lastcpu,
                                    blocksize,
-                                   currentblock * blocksize, 0);
+                                   currentblock * blocksize, 0,
+                                   threadname);
           if (errorcount == 0) {
             int core_id = sched_getcpu();
             logprintf(0, "Process Error: CPU %d(0x%s) CrcCopyPage "
@@ -1295,7 +1326,8 @@ int WorkerThread::CrcCopyPage(struct page_entry *dstpe,
                           srcpe->pattern,
                           srcpe->lastcpu,
                           leftovers,
-                          blocks * blocksize, 0);
+                          blocks * blocksize, 0,
+                          threadname);
     int leftoverwords = leftovers / wordsize_;
     for (int i = 0; i < leftoverwords; i++) {
       targetmem[i] = sourcemem[i];
@@ -1369,7 +1401,8 @@ int InvertThread::InvertPageUp(struct page_entry *srcpe) {
 // Copy a block of memory quickly, while keeping a CRC of the data.
 // Result check if the CRC mismatches. Warm the CPU while running
 int WorkerThread::CrcWarmCopyPage(struct page_entry *dstpe,
-                                  struct page_entry *srcpe) {
+                                  struct page_entry *srcpe,
+                                  const char *threadname) {
   int errors = 0;
   const int blocksize = 4096;
   const int blockwords = blocksize / wordsize_;
@@ -1401,7 +1434,8 @@ int WorkerThread::CrcWarmCopyPage(struct page_entry *dstpe,
                                    srcpe->pattern,
                                    srcpe->lastcpu,
                                    blocksize,
-                                   currentblock * blocksize, 0);
+                                   currentblock * blocksize, 0,
+                                   threadname);
       if (errorcount == 0) {
         logprintf(0, "Log: CrcWarmCopyPage CRC mismatch expected: %s != actual: %s, "
                      "but no miscompares found. Retrying with fresh data.\n",
@@ -1416,7 +1450,8 @@ int WorkerThread::CrcWarmCopyPage(struct page_entry *dstpe,
                                    srcpe->pattern,
                                    srcpe->lastcpu,
                                    blocksize,
-                                   currentblock * blocksize, 0);
+                                   currentblock * blocksize, 0,
+                                   threadname);
           if (errorcount == 0) {
             int core_id = sched_getcpu();
             logprintf(0, "Process Error: CPU %d(0x%s) CrciWarmCopyPage "
@@ -1451,7 +1486,8 @@ int WorkerThread::CrcWarmCopyPage(struct page_entry *dstpe,
                           srcpe->pattern,
                           srcpe->lastcpu,
                           leftovers,
-                          blocks * blocksize, 0);
+                          blocks * blocksize, 0,
+                          threadname);
     int leftoverwords = leftovers / wordsize_;
     for (int i = 0; i < leftoverwords; i++) {
       targetmem[i] = sourcemem[i];
@@ -1461,7 +1497,6 @@ int WorkerThread::CrcWarmCopyPage(struct page_entry *dstpe,
   // Update pattern reference to reflect new contents.
   dstpe->pattern = srcpe->pattern;
   dstpe->lastcpu = sched_getcpu();
-
 
   // Clean clean clean the errors away.
   if (errors) {
@@ -1496,7 +1531,7 @@ bool CheckThread::Work() {
     }
 
     // Do the result check.
-    CrcCheckPage(&pe);
+    CrcCheckPage(&pe, "Check");
 
     // Push pages back on the valid queue if we are still going,
     // throw them out otherwise.
@@ -1553,9 +1588,9 @@ bool CopyThread::Work() {
 
     // We can use memcpy, or CRC check while we copy.
     if (sat_->warm()) {
-      CrcWarmCopyPage(&dst, &src);
+      CrcWarmCopyPage(&dst, &src, "Copy");
     } else if (sat_->strict()) {
-      CrcCopyPage(&dst, &src);
+      CrcCopyPage(&dst, &src, "Copy");
     } else {
       memcpy(dst.addr, src.addr, sat_->page_length());
       dst.pattern = src.pattern;
@@ -1605,7 +1640,7 @@ bool InvertThread::Work() {
     }
 
     if (sat_->strict())
-      CrcCheckPage(&src);
+      CrcCheckPage(&src, "Inv");
 
     // For the same reason CopyThread yields itself (see YieldSelf comment
     // in CopyThread::Work(), InvertThread yields itself after each invert
@@ -1621,7 +1656,7 @@ bool InvertThread::Work() {
     YieldSelf();
 
     if (sat_->strict())
-      CrcCheckPage(&src);
+      CrcCheckPage(&src, "Inv");
 
     result = result && sat_->PutValid(&src);
     if (!result) {
@@ -1718,7 +1753,7 @@ bool FileThread::WritePages(int fd) {
 
     // Check data correctness.
     if (strict)
-      CrcCheckPage(&src);
+      CrcCheckPage(&src, "File");
 
     SectorTagPage(&src, i);
 
@@ -1912,7 +1947,7 @@ bool FileThread::GetValidPage(struct page_entry *src) {
   } else {
     src->addr = local_page_;
     src->offset = 0;
-    CrcCopyPage(src, &tmp);
+    CrcCopyPage(src, &tmp, "File");
     if (!sat_->PutValid(&tmp))
       return false;
   }
@@ -1968,7 +2003,7 @@ bool FileThread::ReadPages(int fd) {
     if (strict) {
       // Record page index currently CRC checked.
       crc_page_ = i;
-      int errors = CrcCheckPage(&dst);
+      int errors = CrcCheckPage(&dst, "File");
       if (errors) {
         logprintf(5, "Log: file miscompare at block %d, "
                   "offset %x-%x. File: %s\n",
@@ -2276,7 +2311,7 @@ bool NetworkThread::Work() {
 
     // Check data correctness.
     if (strict)
-      CrcCheckPage(&src);
+      CrcCheckPage(&src, "Network");
 
     // Do the network write.
     if (!(result = result && SendPage(sock, &src)))
@@ -2292,7 +2327,7 @@ bool NetworkThread::Work() {
 
     // Ensure that the transfer ended up with correct data.
     if (strict)
-      CrcCheckPage(&dst);
+      CrcCheckPage(&dst, "Network");
 
     // Return all of our pages to the queue.
     result = result && sat_->PutValid(&dst);
@@ -3200,7 +3235,7 @@ bool DiskThread::ValidateBlockOnDisk(int fd, BlockData *block) {
     // the block was never written to disk in the first place.
     if (!non_destructive_) {
       if (CheckRegion(block_buffer_, block->pattern(), 0, current_bytes,
-                      0, bytes_read)) {
+                      0, bytes_read, "disk")) {
         os_->ErrorReport(device_name_.c_str(), "disk-pattern-error", 1);
         errorcount_ += 1;
         logprintf(0, "Hardware Error: Pattern mismatch in block starting at "
@@ -3435,7 +3470,7 @@ bool MemoryRegionThread::Work() {
 
     // Copying SAT page into memory region.
     phase_ = kPhaseCopy;
-    CrcCopyPage(&memregion_pe, &source_pe);
+    CrcCopyPage(&memregion_pe, &source_pe, "MemoryRegion");
     memregion_pe.pattern = source_pe.pattern;
     memregion_pe.lastcpu = sched_getcpu();
 
@@ -3449,7 +3484,7 @@ bool MemoryRegionThread::Work() {
 
     // Checking page content in memory region.
     phase_ = kPhaseCheck;
-    CrcCheckPage(&memregion_pe);
+    CrcCheckPage(&memregion_pe, "MemoryRegion");
 
     phase_ = kPhaseNoPhase;
     // Storing pages on their proper queues.
